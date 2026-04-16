@@ -19,7 +19,7 @@ MATCH_TIMEOUT_SECONDS = 5
 
 MATCH_LOCK = threading.Lock()
 WAITING_PLAYER = None
-BATTLES = {}
+BATTLES = {} 
 PLAYER_BATTLES = {}
 
 BOT_NAMES = [
@@ -30,13 +30,14 @@ BOT_NAMES = [
     "Galaxy Cow",
 ]
 
-
 def now() -> float:
     return time.time()
 
+def make_new_player():
+    pass
 
 def make_bot_player() -> dict:
-    bot_pet = choice(["dragon", "lion", "tiger", "cow"])
+    bot_pet = choice(["dragon", "lion", "tiger", "cow","dog"])
     bot_level = randint(8, 26)
     return {
         "id": f"bot-{uuid.uuid4().hex[:8]}",
