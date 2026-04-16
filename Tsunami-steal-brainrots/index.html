@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tsunami Steal - Original Tribute Prototype</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="hud">
+    <div class="hud-left">
+      <h1>TSUNAMI STEAL</h1>
+      <p class="subtitle">Bloxd-feel inspired original 3D prototype</p>
+      <p id="objective">Rush out, steal loot, unlock pets from deeper sections, then bring idols back home to bank them and place them into your two-floor house display.</p>
+      <div class="stats-grid">
+        <div class="stat">Player <span id="player-name">Player</span></div>
+        <div class="stat">Banked <span id="bank">0</span></div>
+        <div class="stat">Carrying <span id="carry">None</span></div>
+        <div class="stat">Wave <span id="wave-timer">--</span></div>
+        <div class="stat">Speed <span id="speed">0</span></div>
+        <div class="stat">Dash <span id="dash">0 / 0</span></div>
+        <div class="stat">Rivals <span id="rivals">0</span></div>
+        <div class="stat">View <span id="camera-mode">Third</span></div>
+        <div class="stat">House <span id="collection-count">0 / 16</span></div>
+        <div class="stat">Total Assets <span id="total-assets">0</span></div>
+      </div>
+    </div>
+    <div class="hud-right">
+      <div class="hint">Click the game to lock your mouse. Move the mouse to aim the camera like Bloxd-style movement. WASD moves relative to view. Shift sprints and Space jumps. Your home now sits in the center of the smaller spawn platform, facing the run lane so you can come straight back in, surrounded by less-uniform trees, flowers, grass, and nature points; aim at them and left click or press E to trigger little animations. The run lane is five times wider, and volcanoes sit outside the map. Red shadow circles mean meteors will land there in 3 seconds and crush players, rivals, loot, and pets inside. Wild wind blows everyone back 20 sections, and heavy rain cuts movement speed by 50%. The map keeps extending forever, and all sections after the last rarity stay Boss. Drop into the center gap to hide from the wave. Calm Ocean can stop tsunamis for 10 seconds. Left click or tap an upgrade pad to buy speed or dash. Press I to reset speed upgrades and refund 100% of their coins. Press G to open the pet-level panel. Press P to switch views. Press Esc to release the mouse.</div>
+      <div class="profile-card">
+        <label for="player-name-input">Permanent Save Profile</label>
+        <div class="profile-row">
+          <input id="player-name-input" type="text" maxlength="18" placeholder="Enter your name" />
+          <button id="save-name-btn" type="button">Save Name</button>
+        </div>
+        <div id="save-status" class="save-status">Loading save...</div>
+      </div>
+      <div id="toast"></div>
+    </div>
+  </div>
+  <canvas id="scene"></canvas>
+  <div id="reticle" aria-hidden="true"></div>
+  <div id="bulk-upgrade-panel" class="bulk-upgrade-panel" aria-hidden="true">
+    <div class="bulk-upgrade-card">
+      <div class="bulk-upgrade-title">Pet Level Cheat</div>
+      <div class="bulk-upgrade-copy">Press G to open or close this panel. Type the pet name and the target level.</div>
+      <label class="bulk-upgrade-field" for="bulk-upgrade-pet">
+        <span>Pet</span>
+        <input id="bulk-upgrade-pet" type="text" placeholder="dragon / cow / tiger" autocomplete="off" />
+      </label>
+      <label class="bulk-upgrade-field" for="bulk-upgrade-level">
+        <span>Target Level</span>
+        <input id="bulk-upgrade-level" type="number" min="1" step="1" value="1" />
+      </label>
+      <div id="bulk-upgrade-cost" class="bulk-upgrade-cost">Cost: 0</div>
+      <div id="bulk-upgrade-status" class="bulk-upgrade-status">Ready.</div>
+      <div class="bulk-upgrade-actions">
+        <button id="bulk-upgrade-confirm" type="button">Confirm</button>
+        <button id="bulk-upgrade-close" type="button" class="secondary">Close</button>
+      </div>
+    </div>
+  </div>
+  <div id="battle-panel" class="battle-panel" aria-hidden="true">
+    <div class="battle-card">
+      <div class="battle-topline">
+        <div>
+          <div class="battle-kicker">Century Pet Battle</div>
+          <div id="battle-status" class="battle-title">Press B to match online</div>
+        </div>
+        <button id="battle-close" type="button">Close</button>
+      </div>
+      <div class="battle-arena">
+        <div class="battle-fighter player-fighter">
+          <div id="battle-player-pet" class="battle-pet-icon">?</div>
+          <div id="battle-player-name" class="battle-name">Your Pet</div>
+          <div class="battle-hp"><span id="battle-player-hp"></span></div>
+        </div>
+        <div id="battle-impact" class="battle-impact">VS</div>
+        <div class="battle-fighter enemy-fighter">
+          <div id="battle-enemy-pet" class="battle-pet-icon">?</div>
+          <div id="battle-enemy-name" class="battle-name">Opponent</div>
+          <div class="battle-hp"><span id="battle-enemy-hp"></span></div>
+        </div>
+      </div>
+      <div id="battle-log" class="battle-log">Use your best pet. Each pet has four skills.</div>
+      <div id="battle-skills" class="battle-skills"></div>
+      <button id="battle-match" type="button" class="battle-match-button">Find Match</button>
+    </div>
+  </div>
+  <script>
+    function probeServerPort(port) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        let settled = false;
+        const done = (ok) => {
+          if (settled) return;
+          settled = true;
+          resolve(ok);
+        };
+        const timer = setTimeout(() => done(false), 700);
+        img.onload = () => {
+          clearTimeout(timer);
+          done(true);
+        };
+        img.onerror = () => {
+          clearTimeout(timer);
+          done(false);
+        };
+        img.src = `http://127.0.0.1:${port}/launch-ping.svg?ts=${Date.now()}`;
+      });
+    }
+
+    async function tryReconnectToLocalServer() {
+      const objective = document.getElementById('objective');
+      const toast = document.getElementById('toast');
+      const ports = Array.from({ length: 18 }, (_, index) => 8123 + index);
+      if (toast) {
+        toast.textContent = 'Direct file open detected. Checking for a running local server...';
+        toast.style.opacity = '1';
+      }
+      for (const port of ports) {
+        const ok = await probeServerPort(port);
+        if (ok) {
+          if (objective) {
+            objective.textContent = `Found the running local build on port ${port}. Redirecting now...`;
+          }
+          window.location.href = `http://127.0.0.1:${port}/`;
+          return true;
+        }
+      }
+      if (objective) {
+        objective.textContent = 'No running local server was found. Double-click play.bat to launch the playable build, then reopen the game window.';
+      }
+      if (toast) {
+        toast.textContent = 'Could not find a running local server. Start play.bat first.';
+        toast.style.opacity = '1';
+      }
+      return false;
+    }
+
+    if (window.location.protocol === 'file:') {
+      const objective = document.getElementById('objective');
+      const toast = document.getElementById('toast');
+      const wave = document.getElementById('wave-timer');
+      const speed = document.getElementById('speed');
+      const dash = document.getElementById('dash');
+      if (objective) {
+        objective.textContent = 'You opened index.html directly. Double-click play.bat to launch the playable local-server build. If the server is already running, this page will try to reconnect automatically.';
+      }
+      if (toast) {
+        toast.textContent = 'Direct file open detected. Run play.bat, then open the game there.';
+        toast.style.opacity = '1';
+      }
+      if (wave) wave.textContent = 'Run';
+      if (speed) speed.textContent = 'play.bat';
+      if (dash) dash.textContent = 'to start';
+      tryReconnectToLocalServer();
+    }
+
+    window.addEventListener('error', (event) => {
+      const toast = document.getElementById('toast');
+      const objective = document.getElementById('objective');
+      const saveStatus = document.getElementById('save-status');
+      if (toast) {
+        toast.textContent = `Runtime error: ${event.message}`;
+        toast.style.opacity = '1';
+      }
+      if (objective) {
+        objective.textContent = 'The game hit a startup problem. Check the message on the right.';
+      }
+      if (saveStatus) {
+        saveStatus.textContent = 'Startup failed.';
+      }
+    });
+
+    window.addEventListener('unhandledrejection', (event) => {
+      const toast = document.getElementById('toast');
+      const objective = document.getElementById('objective');
+      const saveStatus = document.getElementById('save-status');
+      const message = event.reason && event.reason.message ? event.reason.message : String(event.reason);
+      if (toast) {
+        toast.textContent = `Startup failed: ${message}`;
+        toast.style.opacity = '1';
+      }
+      if (objective) {
+        objective.textContent = 'The game hit a startup problem. Check the message on the right.';
+      }
+      if (saveStatus) {
+        saveStatus.textContent = 'Startup failed.';
+      }
+    });
+  </script>
+  <script type="module" src="main.js"></script>
+</body>
+</html>

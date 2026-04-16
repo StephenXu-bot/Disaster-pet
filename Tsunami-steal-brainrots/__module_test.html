@@ -1,0 +1,8 @@
+﻿<!doctype html>
+<html><body>
+<div id="ok">before</div>
+<script type="module">
+  import * as THREE from 'https://unpkg.com/three@0.161.0/build/three.module.js';
+  document.getElementById('ok').textContent = THREE ? 'after' : 'no';
+</script>
+</body></html>
